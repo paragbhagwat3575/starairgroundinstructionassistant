@@ -135,154 +135,168 @@
   </div>
 
   <audio id="remoteAudio" autoplay></audio>
+<script>
+  // === CONFIG: your ephemeral-token endpoint ===
+  const TOKEN_ENDPOINT = "https://getrealtimeusecase3-319132888215.asia-south1.run.app"; // replace if needed
+  const MODEL = "gpt-realtime";
+  const VOICE = "marin";
 
-  <script>
-    // === CONFIG: your ephemeral-token endpoint ===
-    const TOKEN_ENDPOINT = "https://getrealtimeusecase3-319132888215.asia-south1.run.app"; // replace if needed
-    const MODEL = "gpt-realtime";
-    const VOICE = "marin";
+  // UI
+  const btn = document.getElementById("startBtn");
+  const chatEl = document.getElementById("chat");
+  const stateLabel = document.getElementById("stateLabel");
+  const pillLabel = document.getElementById("pillLabel");
+  const dot = document.getElementById("dot");
+  const eq = document.getElementById("eq");
+  const remoteAudio = document.getElementById("remoteAudio");
 
-    // UI
-    const btn = document.getElementById("startBtn");
-    const chatEl = document.getElementById("chat");
-    const stateLabel = document.getElementById("stateLabel");
-    const pillLabel = document.getElementById("pillLabel");
-    const dot = document.getElementById("dot");
-    const eq = document.getElementById("eq");
-    const remoteAudio = document.getElementById("remoteAudio");
+  // WebRTC state
+  let pc=null, dc=null, micStream=null, ephemeralKey=null, outputText="";
+  let isActive = false;         // <-- single source of truth
+  let isStartingOrEnding = false;
 
-    // WebRTC state
-    let pc, dc, micStream, ephemeralKey=null, outputText="";
+  function say(text, who="ai"){
+    if(!text) return;
+    const div = document.createElement("div");
+    div.className = "bubble" + (who==="me" ? " me" : "");
+    div.textContent = text;
+    chatEl.appendChild(div);
+    chatEl.scrollTop = chatEl.scrollHeight;
+  }
+  function setState(label, mode){
+    stateLabel.textContent = label; pillLabel.textContent = label;
+    dot.classList.remove("speaking","listening"); eq.style.display = "none";
+    if(mode==="speaking"){ dot.classList.add("speaking"); eq.style.display = "inline-grid"; }
+    if(mode==="listening"){ dot.classList.add("listening"); }
+  }
 
-    function say(text, who="ai"){
-      if(!text) return;
-      const div = document.createElement("div");
-      div.className = "bubble" + (who==="me" ? " me" : "");
-      div.textContent = text;
-      chatEl.appendChild(div);
-      chatEl.scrollTop = chatEl.scrollHeight;
-    }
-    function setState(label, mode){ stateLabel.textContent = label; pillLabel.textContent = label;
-      dot.classList.remove("speaking","listening"); eq.style.display = "none";
-      if(mode==="speaking"){ dot.classList.add("speaking"); eq.style.display = "inline-grid"; }
-      if(mode==="listening"){ dot.classList.add("listening"); }
-    }
+  const extractEphemeralKey = (json) => {
+    if (!json) return null;
+    if (typeof json.value === "string") return json.value;
+    if (json.client_secret?.value) return json.client_secret.value;
+    if (json.clientSecret?.value)  return json.clientSecret.value;
+    if (json.secret?.value)        return json.secret.value;
+    return null;
+  };
 
-    const extractEphemeralKey = (json) => {
-      if (!json) return null;
-      if (typeof json.value === "string") return json.value;
-      if (json.client_secret?.value) return json.client_secret.value;
-      if (json.clientSecret?.value)  return json.clientSecret.value;
-      if (json.secret?.value)        return json.secret.value;
-      return null;
+  async function getClientSecret(){
+    const r = await fetch(TOKEN_ENDPOINT, {
+      method:"POST", headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({ model: MODEL, voice: VOICE, session_type: "realtime" })
+    });
+    const j = await r.json();
+    const ek = extractEphemeralKey(j);
+    if(!ek) throw new Error("Ephemeral key not found");
+    return ek;
+  }
+
+  function setupPeer(){
+    pc = new RTCPeerConnection();
+    pc.ontrack = (e)=>{ remoteAudio.srcObject = e.streams[0]; };
+
+    dc = pc.createDataChannel("oai-events");
+    dc.onopen = ()=>{
+      if (!isActive) return; // guard if user ended during setup
+      // Ask for audio+text + don't interrupt TTS
+      dc.send(JSON.stringify({ type:"session.update", session:{ output_modalities:["audio","text"] }}));
+      dc.send(JSON.stringify({ type:"session.update", session:{ audio:{ input:{ turn_detection:{ interrupt_response:false }}}}}));
+      // Kick off the greeting defined in your backend instructions
+      dc.send(JSON.stringify({ type:"response.create" }));
+      setState("Connected", "listening");
+    };
+    dc.onmessage = (evt)=>{
+      if (!isActive) return; // ignore late events after end
+      try{ handleServerEvent(JSON.parse(evt.data)); }catch{}
     };
 
-    async function getClientSecret(){
-      const r = await fetch(TOKEN_ENDPOINT, {
-        method:"POST", headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify({ model: MODEL, voice: VOICE, session_type: "realtime" })
+    pc.addTransceiver("audio", { direction:"sendrecv" });
+  }
+
+  function handleServerEvent(m){
+    if (!isActive) return; // extra guard
+
+    // Live captions (assistant side)
+    if (m.type === "response.output_audio_transcript.delta" && typeof m.delta === "string") { outputText += m.delta; return; }
+    if (m.type === "response.output_audio_transcript.done") { say(outputText.trim(), "ai"); outputText=""; return; }
+    if (m.type === "response.output_text.delta" && typeof m.delta === "string") { outputText += m.delta; return; }
+    if (m.type === "response.output_text.done") { say(outputText.trim(), "ai"); outputText=""; return; }
+
+    // Speaking indicators
+    if (m.type === "output_audio_buffer.started"){ setState("Speaking…","speaking"); return; }
+    if (m.type === "output_audio_buffer.stopped"){ setState("Listening…","listening"); return; }
+
+    // When user audio is committed, ask the model to respond
+    if (m.type === "input_audio_buffer.committed"){
+      if (dc?.readyState === "open") dc.send(JSON.stringify({ type:"response.create" }));
+      return;
+    }
+  }
+
+  async function startSession(){
+    if (isActive || isStartingOrEnding) return;
+    isStartingOrEnding = true; btn.disabled = true;
+
+    try{
+      setState("Requesting mic…");
+      micStream = await navigator.mediaDevices.getUserMedia({ audio:true });
+      micStream.getTracks().forEach(t => t.enabled = true);
+
+      setState("Fetching token…");
+      ephemeralKey = await getClientSecret();
+
+      setState("Connecting…");
+      setupPeer();
+      micStream.getTracks().forEach(t => pc.addTrack(t, micStream));
+
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+
+      const url = `https://api.openai.com/v1/realtime/calls?model=${encodeURIComponent(MODEL)}`;
+      const sdpRes = await fetch(url, {
+        method:"POST", body: offer.sdp,
+        headers:{ Authorization:`Bearer ${ephemeralKey}`, "Content-Type":"application/sdp" }
       });
-      const j = await r.json();
-      const ek = extractEphemeralKey(j);
-      if(!ek) throw new Error("Ephemeral key not found");
-      return ek;
+      const answer = await sdpRes.text();
+      if(!sdpRes.ok || !answer.startsWith("v=")) throw new Error("Realtime failed");
+      await pc.setRemoteDescription({ type:"answer", sdp: answer });
+
+      isActive = true;
+      btn.textContent = "End";
+      setState("Listening…","listening");
+    }catch(e){
+      alert(e?.message || e);
+      await endSession(true); // silent cleanup
+    }finally{
+      isStartingOrEnding = false; btn.disabled = false;
     }
+  }
 
-    function setupPeer(){
-      pc = new RTCPeerConnection();
-      pc.ontrack = (e)=>{ remoteAudio.srcObject = e.streams[0]; };
+  async function endSession(silent=false){
+    if (!isActive && !isStartingOrEnding && !pc) return;
+    isStartingOrEnding = true; btn.disabled = true;
 
-      dc = pc.createDataChannel("oai-events");
-      dc.onopen = ()=>{
-        // Ask for audio+text + don't interrupt TTS
-        dc.send(JSON.stringify({ type:"session.update", session:{ output_modalities:["audio","text"] }}));
-        dc.send(JSON.stringify({ type:"session.update", session:{ audio:{ input:{ turn_detection:{ interrupt_response:false }}}}}));
-        // Kick off the greeting defined in your backend instructions
-        dc.send(JSON.stringify({ type:"response.create" }));
-        setState("Connected", "listening");
-      };
-      dc.onmessage = (evt)=>{
-        try{ handleServerEvent(JSON.parse(evt.data)); }catch{}
-      };
-
-      pc.addTransceiver("audio", { direction:"sendrecv" });
-    }
-
-    function handleServerEvent(m){
-      // Live captions (assistant side)
-      if (m.type === "response.output_audio_transcript.delta" && typeof m.delta === "string") {
-        outputText += m.delta; return;
-      }
-      if (m.type === "response.output_audio_transcript.done") {
-        say(outputText.trim(), "ai"); outputText=""; return;
-      }
-      if (m.type === "response.output_text.delta" && typeof m.delta === "string") {
-        outputText += m.delta; return;
-      }
-      if (m.type === "response.output_text.done") {
-        say(outputText.trim(), "ai"); outputText=""; return;
-      }
-
-      // Speaking indicators
-      if (m.type === "output_audio_buffer.started"){ setState("Speaking…","speaking"); return; }
-      if (m.type === "output_audio_buffer.stopped"){ setState("Listening…","listening"); return; }
-
-      // When user audio is committed, ask the model to respond
-      if (m.type === "input_audio_buffer.committed"){
-        if (dc?.readyState === "open") dc.send(JSON.stringify({ type:"response.create" }));
-        return;
-      }
-    }
-
-    async function startSession(){
-      btn.disabled = true;
-      try{
-        setState("Requesting mic…");
-        micStream = await navigator.mediaDevices.getUserMedia({ audio:true });
-        micStream.getTracks().forEach(t => t.enabled = true);
-
-        setState("Fetching token…");
-        ephemeralKey = await getClientSecret();
-
-        setState("Connecting…");
-        setupPeer();
-        micStream.getTracks().forEach(t => pc.addTrack(t, micStream));
-
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-
-        const url = `https://api.openai.com/v1/realtime/calls?model=${encodeURIComponent(MODEL)}`;
-        const sdpRes = await fetch(url, {
-          method:"POST", body: offer.sdp,
-          headers:{ Authorization:`Bearer ${ephemeralKey}`, "Content-Type":"application/sdp" }
-        });
-        const answer = await sdpRes.text();
-        if(!sdpRes.ok || !answer.startsWith("v=")) throw new Error("Realtime failed");
-        await pc.setRemoteDescription({ type:"answer", sdp: answer });
-
-        btn.textContent = "End";
-        btn.onclick = endSession;
-        btn.disabled = false;
-        setState("Listening…","listening");
-      }catch(e){
-        alert(e?.message || e);
-        btn.textContent = "Start";
-        btn.onclick = startSession;
-        btn.disabled = false;
-        setState("Error");
-      }
-    }
-
-    async function endSession(){
+    try {
       try { dc?.send(JSON.stringify({ type:"response.cancel" })); } catch {}
       try { micStream?.getTracks().forEach(t => t.stop()); } catch {}
       try { pc?.close(); } catch {}
+    } finally {
       pc=null; dc=null; micStream=null; ephemeralKey=null;
-      btn.textContent = "Start"; btn.onclick = startSession;
-      setState("Ended");
+      isActive = false;
+      btn.textContent = "Start";
+      if (!silent) setState("Ended");
+      isStartingOrEnding = false; btn.disabled = false;
     }
+  }
 
-    btn.addEventListener("click", startSession);
-  </script>
+  // Single toggle handler (prevents double start)
+  btn.addEventListener("click", async () => {
+    if (isStartingOrEnding) return;
+    if (isActive) { await endSession(); } else { await startSession(); }
+  });
+
+  // Clean up if the user navigates away
+  window.addEventListener("beforeunload", () => { try { dc?.send(JSON.stringify({ type:"response.cancel" })); } catch {} });
+</script>
+
 </body>
 </html>
