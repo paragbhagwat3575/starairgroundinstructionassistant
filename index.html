@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Star Air – Ground Staff Training Assistant</title>
+  <title>Star StarAir Ground Staff Training Assistant</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <style>
     :root{
@@ -22,27 +22,39 @@
 
     .wrap{height:100%; display:grid; place-items:center}
     .card{
-      width:min(1100px, 96vw); height:min(88vh, 900px);
+      width:min(1100px, 96vw);
+      height: calc(100vh - 32px);             /* full-height so buttons stay visible */
       display:grid; grid-template-columns: 420px 1fr; gap: clamp(14px, 3vw, 28px);
       background:var(--glass); border:1px solid var(--stroke); border-radius:24px;
       backdrop-filter: blur(12px);
       box-shadow: 0 20px 60px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.06);
       padding: clamp(16px, 3vw, 28px);
+      min-height: 560px;
     }
-    @media (max-width: 820px){
-      .card{ grid-template-columns: 1fr; height: calc(100vh - 32px) }
-    }
+    @media (max-width: 820px){ .card{ grid-template-columns: 1fr; } }
 
     /* Left column */
-    .hero{ display:grid; grid-template-rows:auto auto 1fr auto auto; gap:14px; }
+    .hero{
+      display:grid; grid-template-rows:auto auto 1fr auto auto; gap:14px;
+      min-height:0;
+    }
     .brand{ font-weight:800; letter-spacing:.4px; color:var(--sub); font-size:clamp(14px,1.8vw,18px) }
     .title{ font-weight:900; line-height:1.05; font-size: clamp(26px, 4.5vw, 38px) }
-    .gifWrap{
-      width:100%; border-radius:20px; overflow:hidden; border:1px solid var(--stroke);
-      background:linear-gradient(180deg, #10194f, #0b0f2c); display:grid; place-items:center;
-      aspect-ratio: 1 / 1;
+    .gifWrap img {
+  width: 80%;
+  height: 100%;
+  object-fit: contain;   /* ✅ keeps full logo visible */
+  display: block;
+  padding: 10px;         /* optional: some breathing space */
+  background: #fff;      /* optional: neutral background behind SVG */
+  border-radius: 16px;   /* matches container roundness */
+}
+
+
+    @media (max-height: 820px){
+      .gifWrap{ aspect-ratio: 16 / 10; max-height: 42vh; }
+      .title{ font-size: clamp(22px, 3.6vw, 34px) }
     }
-    .gifWrap img{ width:100%; height:100%; object-fit:cover; display:block }
 
     .controls{ display:grid; gap:10px; align-content:start }
     .pill{
@@ -62,7 +74,7 @@
       background: radial-gradient(200% 200% at 0% 0%, #ffffff 0%, #d7e5ff 40%, #b7cdfb 100%);
       color:#0b1b3a; padding:14px 22px; border-radius:14px; min-width:180px;
       box-shadow: 0 12px 30px rgba(90,120,255,.35), inset 0 1px 0 #fff8;
-      transition: transform .1s ease, box-shadow .2s ease, opacity .2s ease;
+      transition: transform .1s ease, box-shadow .2s ease, opacity .2s ease, background .2s ease, color .2s ease;
     }
     button.primary:hover{ transform: translateY(-1px); box-shadow: 0 16px 38px rgba(90,120,255,.4) }
     button.primary:active{ transform: translateY(1px) }
@@ -85,18 +97,22 @@
     .bubble.me{ margin-left:auto; background:rgba(122,162,255,.14); border-color:#88a6ff55 }
     .bubble small{ display:block; opacity:.7; margin-top:4px }
 
-    /* Tiny equalizer when speaking (CSS only) */
     .eq { display:inline-grid; grid-auto-flow:column; gap:2px; margin-left:6px }
     .bar{ width:3px; height:10px; background:#a78bfa; border-radius:2px; animation: up 900ms ease-in-out infinite }
     .bar:nth-child(2){ animation-delay:.1s } .bar:nth-child(3){ animation-delay:.2s } .bar:nth-child(4){ animation-delay:.3s }
-    @keyframes up { 0%,100%{ transform: scaleY(.5) } 50%{ transform: scaleY(1.4) } }
+    @keyframes up { 0%,100{ transform: scaleY(.5) } 50%{ transform: scaleY(1.4) } }
 
-    @media (max-width:820px){
-      .gifWrap{ aspect-ratio: 16 / 10 }
-      .chat{ max-height:unset }
-      .hint{ font-size:12px }
-      button.primary{ min-width: 140px }
+    /* PTT visual states */
+    button.primary#pttBtn[data-state="listening"]{
+      background: radial-gradient(200% 200% at 0% 0%, #d4ffe6 0%, #b2f5d6 40%, #7be2b4 100%) !important;
+      color:#063a22 !important;
+      box-shadow: 0 12px 30px rgba(64,202,134,.45), 0 0 0 3px rgba(64,202,134,.15) inset !important;
     }
+    button.primary#pttBtn[data-state="speaking"]{
+      background: radial-gradient(200% 200% at 0% 0%, #efe3ff 0%, #d7c6ff 40%, #bda4ff 100%) !important;
+      color:#2f1159 !important;
+    }
+    button.primary#pttBtn:disabled{ opacity:.6; filter:saturate(.7); cursor:not-allowed }
   </style>
 </head>
 <body>
@@ -104,22 +120,20 @@
     <div class="card">
       <!-- LEFT -->
       <section class="hero">
-        <div class="brand">STAR AIR</div>
+        <div class="brand">StarAir</div>
         <div class="title">Ground Staff Training Assistant</div>
 
         <div class="gifWrap">
-          <!-- Replace GIF if desired -->
-          <!--<img src="https://media4.giphy.com/media/v1.Y2lkPTc5MGI3NjExa2V3bW4xN3lxM2E0dXBtZ2JpcnR5aTNuaW1uNnN0eG1uOWxucWZibCZlcD12MV9naWZzX3NlYXJjaCZjdT1n/Y4ak9Ki2GZCbJxAnJD/giphy.gif" alt="Assistant animation">-->
                  <img src="https://media4.giphy.com/media/v1.Y2lkPTc5MGI3NjExN2FsczNyMm83cDQwbTVtbDdkNXRieHFhNW5kcmRsNGp6eW1xcGJhdSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/pTKSkVSzR6Fh2Fg80q/giphy.gif" alt="Assistant animation">
-
-       </div>
+        </div>
 
         <div class="controls">
           <div class="cta">
             <button id="startBtn" class="primary">Start</button>
+            <button id="pttBtn" class="primary" style="min-width:200px">Hold to Talk</button>
             <span id="statePill" class="pill"><span id="dot" class="dot"></span><span id="pillLabel">Ready</span></span>
           </div>
-          <div class="hint">One tap. We greet the user and start voice chat. Live captions appear on the right.</div>
+          <div class="hint">Press & Hold to Talk (or hold <b>Spacebar</b>). The mic is closed when you’re not holding.</div>
         </div>
       </section>
 
@@ -135,168 +149,281 @@
   </div>
 
   <audio id="remoteAudio" autoplay></audio>
-<script>
-  // === CONFIG: your ephemeral-token endpoint ===
-  const TOKEN_ENDPOINT = "https://getrealtimeusecase3-319132888215.asia-south1.run.app"; // replace if needed
-  const MODEL = "gpt-realtime";
-  const VOICE = "marin";
+  <script>
+    // === CONFIG ===
+    const TOKEN_ENDPOINT = "https://getrealtimeusecase3-319132888215.asia-south1.run.app"; // replace if needed
+    const MODEL = "gpt-realtime";
+    const VOICE = "marin";
 
-  // UI
-  const btn = document.getElementById("startBtn");
-  const chatEl = document.getElementById("chat");
-  const stateLabel = document.getElementById("stateLabel");
-  const pillLabel = document.getElementById("pillLabel");
-  const dot = document.getElementById("dot");
-  const eq = document.getElementById("eq");
-  const remoteAudio = document.getElementById("remoteAudio");
+    // UI
+    const btn = document.getElementById("startBtn");
+    const pttBtn = document.getElementById("pttBtn");
+    const chatEl = document.getElementById("chat");
+    const stateLabel = document.getElementById("stateLabel");
+    const pillLabel = document.getElementById("pillLabel");
+    const dot = document.getElementById("dot");
+    const eq = document.getElementById("eq");
+    const remoteAudio = document.getElementById("remoteAudio");
 
-  // WebRTC state
-  let pc=null, dc=null, micStream=null, ephemeralKey=null, outputText="";
-  let isActive = false;         // <-- single source of truth
-  let isStartingOrEnding = false;
+    // WebRTC state
+    let pc=null, dc=null, micStream=null, ephemeralKey=null;
+    let isActive = false, isStartingOrEnding = false, pttActive = false;
 
-  function say(text, who="ai"){
-    if(!text) return;
-    const div = document.createElement("div");
-    div.className = "bubble" + (who==="me" ? " me" : "");
-    div.textContent = text;
-    chatEl.appendChild(div);
-    chatEl.scrollTop = chatEl.scrollHeight;
-  }
-  function setState(label, mode){
-    stateLabel.textContent = label; pillLabel.textContent = label;
-    dot.classList.remove("speaking","listening"); eq.style.display = "none";
-    if(mode==="speaking"){ dot.classList.add("speaking"); eq.style.display = "inline-grid"; }
-    if(mode==="listening"){ dot.classList.add("listening"); }
-  }
+    // Buffers for appending to chat
+    let aiTextBuffer = "";
+    let userTextBuffer = "";
 
-  const extractEphemeralKey = (json) => {
-    if (!json) return null;
-    if (typeof json.value === "string") return json.value;
-    if (json.client_secret?.value) return json.client_secret.value;
-    if (json.clientSecret?.value)  return json.clientSecret.value;
-    if (json.secret?.value)        return json.secret.value;
-    return null;
-  };
-
-  async function getClientSecret(){
-    const r = await fetch(TOKEN_ENDPOINT, {
-      method:"POST", headers:{ "Content-Type":"application/json" },
-      body: JSON.stringify({ model: MODEL, voice: VOICE, session_type: "realtime" })
-    });
-    const j = await r.json();
-    const ek = extractEphemeralKey(j);
-    if(!ek) throw new Error("Ephemeral key not found");
-    return ek;
-  }
-
-  function setupPeer(){
-    pc = new RTCPeerConnection();
-    pc.ontrack = (e)=>{ remoteAudio.srcObject = e.streams[0]; };
-
-    dc = pc.createDataChannel("oai-events");
-    dc.onopen = ()=>{
-      if (!isActive) return; // guard if user ended during setup
-      // Ask for audio+text + don't interrupt TTS
-      dc.send(JSON.stringify({ type:"session.update", session:{ output_modalities:["audio","text"] }}));
-      dc.send(JSON.stringify({ type:"session.update", session:{ audio:{ input:{ turn_detection:{ interrupt_response:false }}}}}));
-      // Kick off the greeting defined in your backend instructions
-      dc.send(JSON.stringify({ type:"response.create" }));
-      setState("Connected", "listening");
-    };
-    dc.onmessage = (evt)=>{
-      if (!isActive) return; // ignore late events after end
-      try{ handleServerEvent(JSON.parse(evt.data)); }catch{}
-    };
-
-    pc.addTransceiver("audio", { direction:"sendrecv" });
-  }
-
-  function handleServerEvent(m){
-    if (!isActive) return; // extra guard
-
-    // Live captions (assistant side)
-    if (m.type === "response.output_audio_transcript.delta" && typeof m.delta === "string") { outputText += m.delta; return; }
-    if (m.type === "response.output_audio_transcript.done") { say(outputText.trim(), "ai"); outputText=""; return; }
-    if (m.type === "response.output_text.delta" && typeof m.delta === "string") { outputText += m.delta; return; }
-    if (m.type === "response.output_text.done") { say(outputText.trim(), "ai"); outputText=""; return; }
-
-    // Speaking indicators
-    if (m.type === "output_audio_buffer.started"){ setState("Speaking…","speaking"); return; }
-    if (m.type === "output_audio_buffer.stopped"){ setState("Listening…","listening"); return; }
-
-    // When user audio is committed, ask the model to respond
-    if (m.type === "input_audio_buffer.committed"){
-      if (dc?.readyState === "open") dc.send(JSON.stringify({ type:"response.create" }));
-      return;
+    function say(text, who="ai"){
+      if(!text) return;
+      const div = document.createElement("div");
+      div.className = "bubble" + (who==="me" ? " me" : "");
+      div.textContent = text;
+      chatEl.appendChild(div);
+      chatEl.scrollTop = chatEl.scrollHeight;
     }
-  }
 
-  async function startSession(){
-    if (isActive || isStartingOrEnding) return;
-    isStartingOrEnding = true; btn.disabled = true;
+    function setState(label, mode){
+      stateLabel.textContent = label; pillLabel.textContent = label;
+      dot.classList.remove("speaking","listening"); eq.style.display = "none";
+      if(mode==="speaking"){ dot.classList.add("speaking"); eq.style.display = "inline-grid"; }
+      if(mode==="listening"){ dot.classList.add("listening"); }
+      updatePTTEnabled();
+    }
 
-    try{
-      setState("Requesting mic…");
-      micStream = await navigator.mediaDevices.getUserMedia({ audio:true });
-      micStream.getTracks().forEach(t => t.enabled = true);
+    function setMicEnabled(enabled){
+      try { micStream?.getTracks().forEach(t => t.enabled = enabled); } catch {}
+    }
+    function isAssistantSpeaking(){ return dot.classList.contains("speaking"); }
 
-      setState("Fetching token…");
-      ephemeralKey = await getClientSecret();
+    function setTurnDetection(enabled){
+      if (!dc || dc.readyState !== "open") return;
+      const td = enabled ? { type: "server_vad" } : null;
+      dc.send(JSON.stringify({ type:"session.update", session:{ audio:{ input:{ turn_detection: td }}}}));
+    }
 
-      setState("Connecting…");
-      setupPeer();
-      micStream.getTracks().forEach(t => pc.addTrack(t, micStream));
+    function canTalkNow(){
+      return isActive && !isAssistantSpeaking() && dc?.readyState === "open";
+    }
 
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
+    function setPTTVisual(listening=false, speaking=false){
+      const state = speaking ? 'speaking' : (listening ? 'listening' : '');
+      pttBtn.dataset.state = state;
+      if (speaking){
+        pttBtn.textContent = "Speaking…"; pttBtn.setAttribute('aria-pressed','false');
+      } else if (listening){
+        pttBtn.textContent = "Release to Send"; pttBtn.setAttribute('aria-pressed','true');
+      } else {
+        pttBtn.textContent = "Hold to Talk"; pttBtn.setAttribute('aria-pressed','false');
+      }
+      void pttBtn.offsetHeight;
+    }
 
-      const url = `https://api.openai.com/v1/realtime/calls?model=${encodeURIComponent(MODEL)}`;
-      const sdpRes = await fetch(url, {
-        method:"POST", body: offer.sdp,
-        headers:{ Authorization:`Bearer ${ephemeralKey}`, "Content-Type":"application/sdp" }
-      });
-      const answer = await sdpRes.text();
-      if(!sdpRes.ok || !answer.startsWith("v=")) throw new Error("Realtime failed");
-      await pc.setRemoteDescription({ type:"answer", sdp: answer });
-
-      isActive = true;
-      btn.textContent = "End";
+    function pttDown(){
+      if (!canTalkNow()) return;
+      pttActive = true;
+      setTurnDetection(true);
+      setMicEnabled(true);
+      requestAnimationFrame(() => setPTTVisual(true, false));
       setState("Listening…","listening");
-    }catch(e){
-      alert(e?.message || e);
-      await endSession(true); // silent cleanup
-    }finally{
-      isStartingOrEnding = false; btn.disabled = false;
     }
-  }
-
-  async function endSession(silent=false){
-    if (!isActive && !isStartingOrEnding && !pc) return;
-    isStartingOrEnding = true; btn.disabled = true;
-
-    try {
-      try { dc?.send(JSON.stringify({ type:"response.cancel" })); } catch {}
-      try { micStream?.getTracks().forEach(t => t.stop()); } catch {}
-      try { pc?.close(); } catch {}
-    } finally {
-      pc=null; dc=null; micStream=null; ephemeralKey=null;
-      isActive = false;
-      btn.textContent = "Start";
-      if (!silent) setState("Ended");
-      isStartingOrEnding = false; btn.disabled = false;
+    function pttUp(){
+      if (!pttActive) return;
+      pttActive = false;
+      setMicEnabled(false);
+      requestAnimationFrame(() => setPTTVisual(false, false));
+      // server VAD will commit; response.create sent on commit
     }
-  }
 
-  // Single toggle handler (prevents double start)
-  btn.addEventListener("click", async () => {
-    if (isStartingOrEnding) return;
-    if (isActive) { await endSession(); } else { await startSession(); }
-  });
+    function extractEphemeralKey(json){
+      if (!json) return null;
+      if (typeof json.value === "string") return json.value;
+      if (json.client_secret?.value) return json.client_secret.value;
+      if (json.clientSecret?.value)  return json.clientSecret.value;
+      if (json.secret?.value)        return json.secret.value;
+      return null;
+    }
 
-  // Clean up if the user navigates away
-  window.addEventListener("beforeunload", () => { try { dc?.send(JSON.stringify({ type:"response.cancel" })); } catch {} });
-</script>
+    async function getClientSecret(){
+      const r = await fetch(TOKEN_ENDPOINT, {
+        method:"POST", headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ model: MODEL, voice: VOICE, session_type: "realtime" })
+      });
+      const j = await r.json();
+      const ek = extractEphemeralKey(j);
+      if(!ek) throw new Error("Ephemeral key not found");
+      return ek;
+    }
 
+    function setupPeer(){
+      pc = new RTCPeerConnection();
+      pc.ontrack = (e)=>{ remoteAudio.srcObject = e.streams[0]; };
+
+      dc = pc.createDataChannel("oai-events");
+      dc.onopen = ()=>{
+        if (!isActive) return;
+
+        // Enable audio + text outputs
+        dc.send(JSON.stringify({ type:"session.update", session:{ output_modalities:["audio","text"] }}));
+
+        // Enable automatic VAD
+        dc.send(JSON.stringify({ type:"session.update", session:{ audio:{ input:{ turn_detection:{ type:"server_vad" }}}}}));
+
+        // Enable input audio transcription so we get user transcripts
+        dc.send(JSON.stringify({ type:"session.update", session:{
+          input_audio_transcription: { model: "whisper-1" }
+        }}));
+
+        // Optional: set initial system behavior to "Sales Coach"
+        dc.send(JSON.stringify({ type:"session.update", session:{
+          instructions: "You are Sarvada AI Sales Coach. Be concise, practical, and strictly sales-focused (prospecting, discovery, qualification, objections, proposals, negotiation, closing, renewals, account growth). Avoid topics outside sales."
+        }}));
+
+        // initial greeting
+        dc.send(JSON.stringify({ type:"response.create" }));
+
+        setState("Connected","listening");
+        updatePTTEnabled();
+      };
+
+      dc.onmessage = (evt)=>{
+        if (!isActive) return;
+        let m;
+        try { m = JSON.parse(evt.data); } catch { return; }
+        handleServerEvent(m);
+      };
+
+      pc.addTransceiver("audio", { direction:"sendrecv" });
+    }
+
+    function handleServerEvent(m){
+      if (!isActive) return;
+
+      // ---- USER transcript (speech -> text) ----
+      if (m.type === "input_audio_transcript.delta" && typeof m.delta === "string") {
+        userTextBuffer += m.delta;
+        return;
+      }
+      if (m.type === "input_audio_transcript.done") {
+        const finalUser = (userTextBuffer || "").trim();
+        if (finalUser) say(finalUser, "me");
+        userTextBuffer = "";
+        return;
+      }
+
+      // ---- AI output (audio transcript or plain text) ----
+      if (m.type === "response.output_audio_transcript.delta" && typeof m.delta === "string") {
+        aiTextBuffer += m.delta; return;
+      }
+      if (m.type === "response.output_audio_transcript.done") {
+        const finalAi = (aiTextBuffer || "").trim();
+        if (finalAi) say(finalAi, "ai");
+        aiTextBuffer = ""; return;
+      }
+      if (m.type === "response.output_text.delta" && typeof m.delta === "string") {
+        aiTextBuffer += m.delta; return;
+      }
+      if (m.type === "response.output_text.done") {
+        const finalAi = (aiTextBuffer || "").trim();
+        if (finalAi) say(finalAi, "ai");
+        aiTextBuffer = ""; return;
+      }
+
+      // ---- Playback + mic state ----
+      if (m.type === "output_audio_buffer.started"){
+        setTurnDetection(false); setMicEnabled(false);
+        setPTTVisual(false, true); setState("Speaking…","speaking"); return;
+      }
+      if (m.type === "output_audio_buffer.stopped"){
+        setState("Listening…","listening"); setTurnDetection(true); setMicEnabled(false);
+        setPTTVisual(false, false); return;
+      }
+
+      // ---- Commit: when server decides user's turn ended, ask for response ----
+      if (m.type === "input_audio_buffer.committed"){
+        if (dc?.readyState === "open") dc.send(JSON.stringify({ type:"response.create" }));
+        return;
+      }
+    }
+
+    async function startSession(){
+      if (isActive || isStartingOrEnding) return;
+      isStartingOrEnding = true; btn.disabled = true; pttBtn.disabled = true;
+
+      try{
+        setState("Requesting mic…");
+        micStream = await navigator.mediaDevices.getUserMedia({ audio:true });
+        micStream.getTracks().forEach(t => t.enabled = false); // start muted
+
+        setState("Fetching token…"); setPTTVisual(false, false);
+        ephemeralKey = await getClientSecret();
+
+        setState("Connecting…");
+        setupPeer();
+        micStream.getTracks().forEach(t => pc.addTrack(t, micStream));
+
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+
+        const url = `https://api.openai.com/v1/realtime/calls?model=${encodeURIComponent(MODEL)}`;
+        const sdpRes = await fetch(url, {
+          method:"POST", body: offer.sdp,
+          headers:{ Authorization:`Bearer ${ephemeralKey}`, "Content-Type":"application/sdp" }
+        });
+        const answer = await sdpRes.text();
+        if(!sdpRes.ok || !answer.startsWith("v=")) throw new Error("Realtime failed");
+        await pc.setRemoteDescription({ type:"answer", sdp: answer });
+
+        isActive = true;
+        btn.textContent = "End";
+        setState("Listening…","listening");
+      }catch(e){
+        alert(e?.message || e);
+        await endSession(true);
+      }finally{
+        isStartingOrEnding = false; btn.disabled = false; updatePTTEnabled(); setPTTVisual(false, false);
+      }
+    }
+
+    async function endSession(silent=false){
+      if (!isActive && !isStartingOrEnding && !pc) return;
+      isStartingOrEnding = true; btn.disabled = true; pttBtn.disabled = true;
+
+      try {
+        try { dc?.send(JSON.stringify({ type:"response.cancel" })); } catch {}
+        try { micStream?.getTracks().forEach(t => t.stop()); } catch {}
+        try { pc?.close(); } catch {}
+      } finally {
+        pc=null; dc=null; micStream=null; ephemeralKey=null;
+        isActive = false; pttActive = false;
+        btn.textContent = "Start";
+        if (!silent) setState("Ended");
+        isStartingOrEnding = false; btn.disabled = false; updatePTTEnabled(); setPTTVisual(false, false);
+      }
+    }
+
+    function updatePTTEnabled(){
+      const canUse = isActive && !isAssistantSpeaking();
+      pttBtn.disabled = !canUse && !pttActive;     // keep enabled while holding
+      if (pttBtn.disabled) setPTTVisual(false, false);
+    }
+
+    // Start/End toggle
+    btn.addEventListener("click", async () => {
+      if (isStartingOrEnding) return;
+      if (isActive) { await endSession(); } else { await startSession(); }
+    });
+
+    // PTT events (mouse/touch)
+    pttBtn.addEventListener("mousedown", pttDown);
+    pttBtn.addEventListener("touchstart", (e)=>{ e.preventDefault(); pttDown(); }, { passive:false });
+    ["mouseup","mouseleave","touchend","touchcancel"].forEach(evt => pttBtn.addEventListener(evt, pttUp));
+
+    // PTT via Spacebar
+    window.addEventListener("keydown", (e)=>{ if (e.code === "Space" && !e.repeat){ e.preventDefault(); pttDown(); }});
+    window.addEventListener("keyup", (e)=>{ if (e.code === "Space"){ e.preventDefault(); pttUp(); }});
+
+    // Clean up on unload
+    window.addEventListener("beforeunload", () => { try { dc?.send(JSON.stringify({ type:"response.cancel" })); } catch {} });
+  </script>
 </body>
 </html>
